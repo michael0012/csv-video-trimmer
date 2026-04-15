@@ -11,6 +11,7 @@ import csv
 import os
 import subprocess
 import argparse
+import shlex
 from datetime import datetime
 from pathlib import Path
 
@@ -22,8 +23,12 @@ def trim_video(original_video, csv_trims):
         for idx, video_edit in enumerate(video_edits):
             start_time = video_edit.get('start_time', "").strip()
             end_time = video_edit.get('end_time', "").strip()
-            output_video = video_edit.get('output_video','output_video_'+str(idx + 1)).strip()
-            output_video_temp = output_video.replace(' ', "\\ ")
+            output_video = video_edit.get('output_video', "").strip()
+            output_video_temp = output_video.replace("/",'')
+            if not output_video_temp and (start_time or end_time):
+                output_video_temp = 'output_video_'+str(idx + 1)
+            elif not output_video_temp:
+                continue
             group = video_edit.get('group', '').strip()
             if group:
                 group = int(group)
@@ -40,14 +45,15 @@ def trim_video(original_video, csv_trims):
                 output_video_temp = f"{output_video_temp}_{video_names_counter[output_video_temp]}"
                 if group:
                     group_dict[group].append(output_video_temp)
+            temp_path_of_new_video = str(Path(f"{output_video_temp}.mp4").resolve())
             if start_time and end_time:
                 # originally set to subprocess.run(f"ffmpeg -i {original_video} -ss {start_time} -to {end_time} -c copy {output_video_temp}.mp4", shell=True) but resulted in black video frames for first 2 seconds and frozen frames on video merge
                 # below transcodes the trimmed video which takes longer than copying but fixes black frames for first 2 seconds
-                subprocess.run(f"ffmpeg -i {original_video} -ss {start_time} -to {end_time} -c:v libx264 -crf 18 -preset slow -c:a copy {output_video_temp}.mp4", shell=True)
+                subprocess.run(f"ffmpeg -i {original_video} -ss {start_time} -to {end_time} -c:v libx264 -crf 18 -preset slow -c:a copy {shlex.quote(temp_path_of_new_video)}", shell=True)
             elif start_time:
-                subprocess.run(f"ffmpeg -i {original_video} -ss {start_time} -c:v libx264 -crf 18 -preset slow -c:a copy {output_video_temp}.mp4", shell=True)
+                subprocess.run(f"ffmpeg -i {original_video} -ss {start_time} -c:v libx264 -crf 18 -preset slow -c:a copy {shlex.quote(temp_path_of_new_video)}", shell=True)
             elif end_time:
-                subprocess.run(f"ffmpeg -i {original_video} -to {end_time} -c copy {output_video_temp}.mp4", shell=True)
+                subprocess.run(f"ffmpeg -i {original_video} -to {end_time} -c copy {shlex.quote(temp_path_of_new_video)}", shell=True)
             else:
                 pass
         for group in group_dict.keys():
@@ -55,21 +61,21 @@ def trim_video(original_video, csv_trims):
             file.write("")
             file.close()
             output_video_of_group = group_dict[group][0][:-2]
+            output_video_of_group = str(Path(f"{output_video_of_group}.mp4").resolve())
             file = open("video_list.txt", "a")
             for counter, video in enumerate(group_dict[group]):
                 print(f"Group: {group}, video: {video}")
-                video_path = video.replace("\\","")
+                video_path = video #.replace("\\","")
                 video_path = Path(f"{video}.mp4").resolve()
-                video_path = str(video_path).replace("\\", "")
                 file.write(f"file '{video_path}'")
                 if counter != len(group_dict[group]) - 1:
                     file.write("\n")
             file.close()
-            subprocess.run(f"ffmpeg -f concat -safe 0 -i video_list.txt -c copy {output_video_of_group}.mp4", shell=True)
+            subprocess.run(f"ffmpeg -f concat -safe 0 -i video_list.txt -c copy {shlex.quote(output_video_of_group)}", shell=True)
             for video in group_dict[group]:
-                video_name = video.replace("\\","")
-                os.remove(f"{video_name}.mp4")
-        os.remove("video_list.txt")
+                os.remove(f"{video}.mp4")
+        if Path("video_list.txt").exists():
+            os.remove("video_list.txt")
 
             
 
