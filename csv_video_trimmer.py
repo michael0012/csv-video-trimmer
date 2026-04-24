@@ -21,15 +21,15 @@ def trim_video(original_video, csv_trims):
         video_names_counter = {}
         group_dict = {}
         for idx, video_edit in enumerate(video_edits):
-            start_time = video_edit.get('start_time', "").strip()
-            end_time = video_edit.get('end_time', "").strip()
-            output_video = video_edit.get('output_video', "").strip()
+            start_time = video_edit['start_time'].strip()
+            end_time = video_edit['end_time'].strip()
+            output_video = video_edit['output_video'].strip()
             output_video_temp = output_video.replace("/",'')
             if not output_video_temp and (start_time or end_time):
                 output_video_temp = 'output_video_'+str(idx + 1)
             elif not output_video_temp:
                 continue
-            group = video_edit.get('group', '').strip()
+            group = video_edit['group'].strip()
             if group:
                 group = int(group)
             if (not output_video_temp in video_names_counter) and (not group in group_dict):
